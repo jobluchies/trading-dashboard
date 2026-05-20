@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="1800">
+<title>Trading Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c12;
+    --surface: #0d1520;
+    --border: #1a2535;
+    --accent: #00ff88;
+    --accent2: #0088ff;
+    --danger: #ff4466;
+    --text: #c8d8e8;
+    --muted: #4a6080;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(0,255,136,0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(0,136,255,0.03) 0%, transparent 50%);
+  }
+
+  header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  header h1 {
+    font-family: var(--sans);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .timestamp {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .timestamp b { color: var(--accent); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 24px 28px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: var(--sans);
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .stat-value.positive { color: var(--accent); }
+  .stat-value.negative { color: var(--danger); }
+
+  .section {
+    padding: 32px 40px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(26,37,53,0.5);
+    color: var(--text);
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .ticker {
+    font-weight: 700;
+    color: #fff;
+    background: var(--border);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  .score-badge {
+    background: rgba(0,255,136,0.1);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+
+  .empty {
+    color: var(--muted);
+    padding: 24px 12px;
+    font-style: italic;
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+  }
+
+  footer {
+    padding: 20px 40px;
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>TRADING <span>DASHBOARD</span></h1>
+    <div style="margin-top:4px;color:var(--muted);font-size:11px">Paper trading — Alpaca Markets</div>
+  </div>
+  <div style="text-align:right">
+    <div style="margin-bottom:6px"><span class="live-dot"></span> <span style="color:var(--accent);font-size:11px">LIVE</span></div>
+    <div class="timestamp">Laatste update: <b>20/05/2026 21:25</b></div>
+    <div class="timestamp" style="margin-top:2px">Pagina ververst automatisch elke 30 min</div>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="stat">
+    <div class="stat-label">Portfolio waarde</div>
+    <div class="stat-value">$100,000</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Totaal trades</div>
+    <div class="stat-value">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Winrate</div>
+    <div class="stat-value negative">0%</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Totaal resultaat</div>
+    <div class="stat-value positive">$+0.00</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Open posities (0)</div>
+  <div class="empty">Geen open posities</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Laatste signalen screener</div>
+  <div class="empty">Nog geen scan data</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Recente gesloten trades</div>
+  <div class="empty">Nog geen gesloten trades</div>
+</div>
+
+<footer>
+  Trading dashboard — automatisch gegenereerd · Vernieuw handmatig of wacht op automatische refresh
+</footer>
+
+</body>
+</html>
