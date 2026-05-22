@@ -1,0 +1,20 @@
+# Secrets
+alpaca_keys.txt
+github_keys.txt
+
+# Trade data
+trades.json
+trades_*.json
+
+# Cache
+cache_tickers.json
+cache_shortlist.json
+scan_historie/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Trading Journal (local Obsidian vault)
+Trading Journal/
