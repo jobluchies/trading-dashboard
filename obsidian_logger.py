@@ -213,7 +213,7 @@ def scan_stats_naar_markdown(stats):
     ])
 
 
-def schrijf_dagboek(trades=None, scan_stats=None):
+def schrijf_dagboek(trades=None, scan_stats=None, strategy_naam='Baseline'):
     if trades is None:
         trades = []
 
@@ -277,7 +277,8 @@ def schrijf_dagboek(trades=None, scan_stats=None):
 #dagboek #{datum} #{dag_nl}
 """
 
-    pad = os.path.join(OBSIDIAN_PAD, 'Dagboek', f"{datum}.md")
+    slug = strategy_naam.lower().replace(' ', '_')
+    pad = os.path.join(OBSIDIAN_PAD, 'Dagboek', f"{datum}-{slug}.md")
     with open(pad, 'w', encoding='utf-8') as f:
         f.write(inhoud)
     print(f"  Dagboek aangemaakt: {datum}.md")

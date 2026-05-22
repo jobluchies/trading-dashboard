@@ -20,70 +20,31 @@ def laad_github_keys():
 
 # ─── HTML dashboard genereren ────────────────────────────
 
-def genereer_dashboard_html(portfolio, scan_resultaten=None):
+def genereer_dashboard_html(portfolios, scan_resultaten=None):
     nu = datetime.now(NL_TZ).strftime('%d/%m/%Y %H:%M')
-    stats = portfolio.get('statistieken', {})
-    open_trades = portfolio.get('open_trades', {})
-    gesloten_trades = portfolio.get('gesloten_trades', [])
 
-    # Bereken dag nummer op basis van eerste trade
-    from datetime import date as _date
-    alle_trades = portfolio.get('gesloten_trades', [])
-    dag_nummer = 1
-    if alle_trades:
-        eerste_str = alle_trades[0].get('tijdstip', alle_trades[0].get('gesloten_op', ''))[:10]
-        try:
-            if '/' in eerste_str:
-                d, m, y = eerste_str.split('/')
-                eerste_datum = _date(int(y), int(m), int(d))
-            else:
-                eerste_datum = _date.fromisoformat(eerste_str)
-            dag_nummer = (_date.today() - eerste_datum).days + 1
-        except:
-            dag_nummer = 1
-
-    startkapitaal = portfolio.get('startkapitaal', 100000)
-    portfolio_waarde = portfolio.get('portfolio_waarde', startkapitaal)
-    rendement = round(((portfolio_waarde - startkapitaal) / startkapitaal) * 100, 2) if startkapitaal else 0
-    winrate = round((stats.get('winstgevend', 0) / stats['totaal']) * 100, 1) if stats.get('totaal', 0) > 0 else 0
-
-    # Open P/L alleen berekenen als er open posities zijn
-    open_pl = round(portfolio_waarde - startkapitaal - stats.get('totaal_resultaat', 0), 2) if open_trades else 0
-
-    # ─── Open posities HTML ──────────────────────────────
-    open_rijen = ''
-    for t in open_trades.values():
-        pl = t.get('huidig_pl', 0.0)
+    strategy_rijen = ''
+    for p in portfolios:
+        naam = p.get('naam', '?')
+        stats = p.get('statistieken', {})
+        start = p.get('startkapitaal', 100000)
+        waarde = p.get('portfolio_waarde', start)
+        rendement = round(((waarde - start) / start) * 100, 2) if start else 0
+        winrate = round((stats.get('winstgevend', 0) / stats['totaal']) * 100, 1) if stats.get('totaal', 0) > 0 else 0
+        pl = stats.get('totaal_resultaat', 0)
+        ren_kleur = '#00ff88' if rendement >= 0 else '#ff4466'
         pl_kleur = '#00ff88' if pl >= 0 else '#ff4466'
-        pl_teken = '+' if pl >= 0 else ''
-        open_rijen += f"""
+        strategy_rijen += f"""
         <tr>
-            <td><span class="ticker">{t['ticker']}</span></td>
-            <td>${t['instap_prijs']:.2f}</td>
-            <td>${t['doel']:.2f}</td>
-            <td>${t['stop_loss']:.2f}</td>
-            <td>{t['aantal']}</td>
-            <td style="color:{pl_kleur}">{pl_teken}{pl:.2f}%</td>
-            <td><span class="score-badge">{t.get('score', '-')}</span></td>
+            <td><span class="ticker">{naam}</span></td>
+            <td>${waarde:,.0f}</td>
+            <td style="color:{ren_kleur}">{'+' if rendement >= 0 else ''}{rendement}%</td>
+            <td style="color:{pl_kleur}">${pl:+,.2f}</td>
+            <td>{stats.get('totaal', 0)}</td>
+            <td>{winrate}%</td>
+            <td>{len(p.get('open_trades', {}))}</td>
         </tr>"""
 
-    # ─── Gesloten trades HTML ────────────────────────────
-    gesloten_rijen = ''
-    for t in reversed(gesloten_trades[-20:]):
-        resultaat = t.get('resultaat_pct', 0)
-        kleur = '#00ff88' if resultaat >= 0 else '#ff4466'
-        teken = '+' if resultaat >= 0 else ''
-        gesloten_rijen += f"""
-        <tr>
-            <td><span class="ticker">{t['ticker']}</span></td>
-            <td>${t['instap_prijs']:.2f}</td>
-            <td>${t.get('uitstap_prijs', 0):.2f}</td>
-            <td style="color:{kleur}">{teken}{resultaat:.2f}%</td>
-            <td>{t.get('reden', '-')}</td>
-            <td>{t.get('gesloten_op', '-')}</td>
-        </tr>"""
-
-    # ─── Scan signalen HTML ──────────────────────────────
     scan_rijen = ''
     if scan_resultaten:
         for d in scan_resultaten[:20]:
@@ -115,242 +76,55 @@ def genereer_dashboard_html(portfolio, scan_resultaten=None):
 <title>Trading Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {{
-    --bg: #080c12;
-    --surface: #0d1520;
-    --border: #1a2535;
-    --accent: #00ff88;
-    --accent2: #0088ff;
-    --danger: #ff4466;
-    --text: #c8d8e8;
-    --muted: #4a6080;
-    --mono: 'Space Mono', monospace;
-    --sans: 'Syne', sans-serif;
-  }}
-
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-
-  body {{
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 13px;
-    min-height: 100vh;
-    background-image:
-      radial-gradient(ellipse at 20% 20%, rgba(0,255,136,0.03) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(0,136,255,0.03) 0%, transparent 50%);
-  }}
-
-  header {{
-    padding: 32px 40px 24px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-  }}
-
-  header h1 {{
-    font-family: var(--sans);
-    font-size: 28px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: #fff;
-  }}
-
-  header h1 span {{ color: var(--accent); }}
-
-  .timestamp {{
-    color: var(--muted);
-    font-size: 11px;
-  }}
-
-  .timestamp b {{ color: var(--accent); }}
-
-  .grid {{
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 1px;
-    background: var(--border);
-    border-bottom: 1px solid var(--border);
-  }}
-
-  .stat {{
-    background: var(--surface);
-    padding: 24px 28px;
-  }}
-
-  .stat-label {{
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }}
-
-  .stat-value {{
-    font-family: var(--sans);
-    font-size: 32px;
-    font-weight: 800;
-    color: #fff;
-  }}
-
-  .stat-value.positive {{ color: var(--accent); }}
-  .stat-value.negative {{ color: var(--danger); }}
-
-  .section {{
-    padding: 32px 40px;
-    border-bottom: 1px solid var(--border);
-  }}
-
-  .section-title {{
-    font-family: var(--sans);
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    color: var(--muted);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }}
-
-  .section-title::after {{
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }}
-
-  table {{
-    width: 100%;
-    border-collapse: collapse;
-  }}
-
-  th {{
-    text-align: left;
-    padding: 8px 12px;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-  }}
-
-  td {{
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(26,37,53,0.5);
-    color: var(--text);
-  }}
-
-  tr:hover td {{ background: rgba(255,255,255,0.02); }}
-
-  .ticker {{
-    font-weight: 700;
-    color: #fff;
-    background: var(--border);
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-size: 12px;
-  }}
-
-  .score-badge {{
-    background: rgba(0,255,136,0.1);
-    color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-weight: 700;
-  }}
-
-  .empty {{
-    color: var(--muted);
-    padding: 24px 12px;
-    font-style: italic;
-  }}
-
-  .live-dot {{
-    width: 8px;
-    height: 8px;
-    background: var(--accent);
-    border-radius: 50%;
-    display: inline-block;
-    animation: pulse 2s infinite;
-  }}
-
-  @keyframes pulse {{
-    0%, 100% {{ opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }}
-    50% {{ opacity: 0.7; box-shadow: 0 0 0 6px rgba(0,255,136,0); }}
-  }}
-
-  footer {{
-    padding: 20px 40px;
-    color: var(--muted);
-    font-size: 11px;
-    text-align: center;
-  }}
+  :root {{--bg:#080c12;--surface:#0d1520;--border:#1a2535;--accent:#00ff88;--danger:#ff4466;--text:#c8d8e8;--muted:#4a6080;--mono:'Space Mono',monospace;--sans:'Syne',sans-serif;}}
+  *{{margin:0;padding:0;box-sizing:border-box;}}
+  body{{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;}}
+  header{{padding:32px 40px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-end;}}
+  header h1{{font-family:var(--sans);font-size:28px;font-weight:800;color:#fff;}}
+  header h1 span{{color:var(--accent);}}
+  .timestamp{{color:var(--muted);font-size:11px;}}
+  .timestamp b{{color:var(--accent);}}
+  .section{{padding:32px 40px;border-bottom:1px solid var(--border);}}
+  .section-title{{font-family:var(--sans);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:var(--muted);margin-bottom:20px;display:flex;align-items:center;gap:10px;}}
+  .section-title::after{{content:'';flex:1;height:1px;background:var(--border);}}
+  table{{width:100%;border-collapse:collapse;}}
+  th{{text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);border-bottom:1px solid var(--border);}}
+  td{{padding:10px 12px;border-bottom:1px solid rgba(26,37,53,0.5);}}
+  tr:hover td{{background:rgba(255,255,255,0.02);}}
+  .ticker{{font-weight:700;color:#fff;background:var(--border);padding:2px 8px;border-radius:3px;font-size:12px;}}
+  .live-dot{{width:8px;height:8px;background:var(--accent);border-radius:50%;display:inline-block;animation:pulse 2s infinite;}}
+  @keyframes pulse{{0%,100%{{opacity:1;box-shadow:0 0 0 0 rgba(0,255,136,0.4);}}50%{{opacity:.7;box-shadow:0 0 0 6px rgba(0,255,136,0);}}}}
+  footer{{padding:20px 40px;color:var(--muted);font-size:11px;text-align:center;}}
 </style>
 </head>
 <body>
-
 <header>
   <div>
     <h1>TRADING <span>DASHBOARD</span></h1>
-    <div style="margin-top:4px;color:var(--muted);font-size:11px">Paper trading — Alpaca Markets &nbsp;·&nbsp; <span style="color:var(--accent)">Dag {dag_nummer}</span></div>
+    <div style="margin-top:4px;color:var(--muted);font-size:11px">6-strategy paper trading — Alpaca Markets</div>
   </div>
   <div style="text-align:right">
     <div style="margin-bottom:6px"><span class="live-dot"></span> <span style="color:var(--accent);font-size:11px">LIVE</span></div>
-    <div class="timestamp">Laatste update: <b>{nu}</b></div>
-    <div class="timestamp" style="margin-top:2px">Pagina ververst automatisch elke 30 min</div>
+    <div class="timestamp">Laatste update: <b>{{nu}}</b></div>
   </div>
 </header>
-
-<div class="grid">
-  <div class="stat">
-    <div class="stat-label">Portfolio waarde</div>
-    <div class="stat-value">${portfolio_waarde:,.0f}</div>
-    <div style="font-size:11px;margin-top:4px;color:{'var(--accent)' if rendement >= 0 else 'var(--danger)'}">{'+' if rendement >= 0 else ''}{rendement}% vs start</div>
-  </div>
-  <div class="stat">
-    <div class="stat-label">Totaal trades</div>
-    <div class="stat-value">{stats.get('totaal', 0)}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-label">Winrate</div>
-    <div class="stat-value {'positive' if winrate >= 50 else 'negative'}">{winrate}%</div>
-  </div>
-  <div class="stat">
-    <div class="stat-label">Gesloten P/L</div>
-    <div class="stat-value {'positive' if stats.get('totaal_resultaat', 0) >= 0 else 'negative'}">${stats.get('totaal_resultaat', 0):+,.2f}</div>
-  </div>
-  <div class="stat">
-    <div class="stat-label">Open P/L</div>
-    <div class="stat-value {'positive' if open_pl >= 0 else 'negative'}">${open_pl:+,.2f}</div>
-  </div>
-</div>
-
 <div class="section">
-  <div class="section-title">Open posities ({len(open_trades)})</div>
-  {'<table><thead><tr><th>Ticker</th><th>Instap</th><th>Doel</th><th>Stop</th><th>Aantal</th><th>P/L</th><th>Score</th></tr></thead><tbody>' + open_rijen + '</tbody></table>' if open_trades else '<div class="empty">Geen open posities</div>'}
+  <div class="section-title">Strategy vergelijking</div>
+  <table>
+    <thead><tr><th>Strategie</th><th>Portfolio</th><th>Rendement</th><th>Gesloten P/L</th><th>Trades</th><th>Winrate</th><th>Open</th></tr></thead>
+    <tbody>{{strategy_rijen}}</tbody>
+  </table>
 </div>
-
 <div class="section">
-  <div class="section-title">Laatste signalen screener</div>
-  {'<table><thead><tr><th>Ticker</th><th>Prijs</th><th>Wijz%</th><th>RelVol</th><th>RSI</th><th>VWAP</th><th>EMA</th><th>Score</th></tr></thead><tbody>' + scan_rijen + '</tbody></table>' if scan_resultaten else '<div class="empty">Nog geen scan data</div>'}
+  <div class="section-title">Laatste signalen screener (Baseline)</div>
+  {{'<table><thead><tr><th>Ticker</th><th>Prijs</th><th>Wijz%</th><th>RelVol</th><th>RSI</th><th>VWAP</th><th>EMA</th><th>Score</th></tr></thead><tbody>' + scan_rijen + '</tbody></table>' if scan_resultaten else '<div style="color:var(--muted);padding:24px 12px;font-style:italic">Nog geen scan data</div>'}}
 </div>
-
-<div class="section">
-  <div class="section-title">Recente gesloten trades</div>
-  {'<table><thead><tr><th>Ticker</th><th>Instap</th><th>Uitstap</th><th>Resultaat</th><th>Reden</th><th>Gesloten op</th></tr></thead><tbody>' + gesloten_rijen + '</tbody></table>' if gesloten_trades else '<div class="empty">Nog geen gesloten trades</div>'}
-</div>
-
-<footer>
-  Trading dashboard — automatisch gegenereerd · Vernieuw handmatig of wacht op automatische refresh
-</footer>
-
+<footer>Trading dashboard — automatisch gegenereerd</footer>
 </body>
 </html>"""
 
     return html
+
 
 
 # ─── Push naar GitHub ─────────────────────────────────────
@@ -397,9 +171,8 @@ def push_naar_github(html_inhoud):
 
 # ─── Hoofd functie ────────────────────────────────────────
 
-def update_dashboard(portfolio, scan_resultaten=None):
-    """Genereert het HTML dashboard en pusht naar GitHub Pages."""
-    html = genereer_dashboard_html(portfolio, scan_resultaten)
+def update_dashboard(portfolios, scan_resultaten=None):
+    html = genereer_dashboard_html(portfolios, scan_resultaten)
     push_naar_github(html)
 
 
