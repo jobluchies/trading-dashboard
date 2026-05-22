@@ -194,7 +194,7 @@ def detecteer_ema_crossover(closes):
         return 'EMA BEAR', e9h, e20h
 
 
-def bereken_confluence_score(data):
+def bereken_confluence_score(data, volume_gewicht=1.0):
     score = SCORE_BASIS
 
     score *= VWAP_BOVEN_MULT if data['boven_vwap'] else VWAP_ONDER_MULT
@@ -209,7 +209,9 @@ def bereken_confluence_score(data):
     pos = data['verandering_pct'] > 0
     for grens, mp, mn in VOLUME_ZONES:
         if rv > grens:
-            score *= mp if pos else mn
+            vol_mult = mp if pos else mn
+            vol_mult_adjusted = 1.0 + (vol_mult - 1.0) * volume_gewicht
+            score *= vol_mult_adjusted
             break
 
     pct = data['verandering_pct']
@@ -228,6 +230,21 @@ def bereken_confluence_score(data):
         score *= BONUS_LAGE_RSI_BIJ_KRUIS_OMLAAG
 
     return round(max(0, min(100, score)), 1)
+
+
+def score_signals(raw_data, strategy):
+    data = raw_data
+    if strategy.get('ema_only'):
+        data = [d for d in data if d.get('ema_status') == 'KRUIS OMHOOG']
+
+    resultaten = []
+    for d in data:
+        score = bereken_confluence_score(d, strategy.get('volume_gewicht', 1.0))
+        if score >= strategy['min_score']:
+            resultaten.append({**d, 'score': score})
+
+    resultaten.sort(key=lambda x: x['score'], reverse=True)
+    return resultaten
 
 
 # ─── Data ophalen per ticker ──────────────────────────────
@@ -361,18 +378,12 @@ def grote_scan(alle_tickers):
 
 def kleine_scan(shortlist_tickers):
     print(f"\n  🔄 KLEINE SCAN — {len(shortlist_tickers)} shortlist aandelen refreshen...")
-
     resultaten = []
     for ticker in shortlist_tickers:
         data = haal_data_op(ticker)
         if data:
-            data['score'] = bereken_confluence_score(data)
             resultaten.append(data)
-
-    # Sorteer hoog naar laag — alleen bullish signalen teruggeven
-    resultaten.sort(key=lambda x: x['score'], reverse=True)
-    resultaten = [r for r in resultaten if r['score'] >= 65]
-    print(f"  ✅ Kleine scan klaar — {len(resultaten)} bullish aandelen geanalyseerd")
+    print(f"  ✅ Kleine scan klaar — {len(resultaten)} aandelen opgehaald")
     return resultaten
 
 
@@ -384,18 +395,24 @@ def run_screener():
 
     alle_tickers = haal_alle_tickers_op()
     if not alle_tickers:
-        print("  Kon geen tickers ophalen. Controleer je internetverbinding.")
-        return []
+        print("  Kon geen tickers ophalen.")
+        return [], {}
 
     shortlist_tickers, grote_scan_nodig = laad_shortlist_cache()
-    resultaten = grote_scan(alle_tickers) if grote_scan_nodig else kleine_scan(shortlist_tickers)
+
+    if grote_scan_nodig:
+        resultaten_met_score = grote_scan(alle_tickers)
+        raw_data = [{k: v for k, v in d.items() if k != 'score'} for d in resultaten_met_score]
+    else:
+        raw_data = kleine_scan(shortlist_tickers)
+        resultaten_met_score = [{**d, 'score': bereken_confluence_score(d)} for d in raw_data]
 
     print(f"\n  Top {TOP_RESULTATEN} meest extreme signalen:\n")
-    toon_dashboard(resultaten[:TOP_RESULTATEN])
-    sla_scan_historie_op(resultaten)
+    toon_dashboard(resultaten_met_score[:TOP_RESULTATEN])
+    sla_scan_historie_op(resultaten_met_score)
 
-    stats = bereken_scan_statistieken(resultaten)
-    return resultaten, stats
+    stats = bereken_scan_statistieken(resultaten_met_score)
+    return raw_data, stats
 
 
 if __name__ == "__main__":
