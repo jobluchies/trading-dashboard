@@ -36,19 +36,73 @@
   </div>
   <div style="text-align:right">
     <div style="margin-bottom:6px"><span class="live-dot"></span> <span style="color:var(--accent);font-size:11px">LIVE</span></div>
-    <div class="timestamp">Laatste update: <b>{nu}</b></div>
+    <div class="timestamp">Laatste update: <b>23/05/2026 15:55</b></div>
   </div>
 </header>
 <div class="section">
   <div class="section-title">Strategy vergelijking</div>
   <table>
     <thead><tr><th>Strategie</th><th>Portfolio</th><th>Rendement</th><th>Gesloten P/L</th><th>Trades</th><th>Winrate</th><th>Open</th></tr></thead>
-    <tbody>{strategy_rijen}</tbody>
+    <tbody>
+        <tr>
+            <td><span class="ticker">Baseline</span></td>
+            <td>$96,448</td>
+            <td style="color:#ff4466">-2.2%</td>
+            <td style="color:#ff4466">$-510.30</td>
+            <td>125</td>
+            <td>33.6%</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td><span class="ticker">Tight RR</span></td>
+            <td>$97,622</td>
+            <td style="color:#ff4466">-2.38%</td>
+            <td style="color:#ff4466">$-1,130.06</td>
+            <td>121</td>
+            <td>38.8%</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td><span class="ticker">Conservative RR</span></td>
+            <td>$97,752</td>
+            <td style="color:#ff4466">-2.25%</td>
+            <td style="color:#ff4466">$-852.07</td>
+            <td>120</td>
+            <td>33.3%</td>
+            <td>1</td>
+        </tr>
+        <tr>
+            <td><span class="ticker">High Conviction</span></td>
+            <td>$98,816</td>
+            <td style="color:#ff4466">-1.18%</td>
+            <td style="color:#ff4466">$-82.95</td>
+            <td>91</td>
+            <td>31.9%</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td><span class="ticker">Volume First</span></td>
+            <td>$96,806</td>
+            <td style="color:#ff4466">-3.19%</td>
+            <td style="color:#ff4466">$-1,212.83</td>
+            <td>129</td>
+            <td>32.6%</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td><span class="ticker">EMA Crossover Only</span></td>
+            <td>$99,654</td>
+            <td style="color:#ff4466">-0.35%</td>
+            <td style="color:#ff4466">$-110.50</td>
+            <td>22</td>
+            <td>22.7%</td>
+            <td>0</td>
+        </tr></tbody>
   </table>
 </div>
 <div class="section">
   <div class="section-title">Laatste signalen screener (Baseline)</div>
-  {'<table><thead><tr><th>Ticker</th><th>Prijs</th><th>Wijz%</th><th>RelVol</th><th>RSI</th><th>VWAP</th><th>EMA</th><th>Score</th></tr></thead><tbody>' + scan_rijen + '</tbody></table>' if scan_resultaten else '<div style="color:var(--muted);padding:24px 12px;font-style:italic">Nog geen scan data</div>'}
+  <div style="color:var(--muted);padding:24px 12px;font-style:italic">Nog geen scan data</div>
 </div>
 <footer>Trading dashboard — automatisch gegenereerd</footer>
 </body>
