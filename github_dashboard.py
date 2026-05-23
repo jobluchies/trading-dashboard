@@ -105,19 +105,19 @@ def genereer_dashboard_html(portfolios, scan_resultaten=None):
   </div>
   <div style="text-align:right">
     <div style="margin-bottom:6px"><span class="live-dot"></span> <span style="color:var(--accent);font-size:11px">LIVE</span></div>
-    <div class="timestamp">Laatste update: <b>{{nu}}</b></div>
+    <div class="timestamp">Laatste update: <b>{nu}</b></div>
   </div>
 </header>
 <div class="section">
   <div class="section-title">Strategy vergelijking</div>
   <table>
     <thead><tr><th>Strategie</th><th>Portfolio</th><th>Rendement</th><th>Gesloten P/L</th><th>Trades</th><th>Winrate</th><th>Open</th></tr></thead>
-    <tbody>{{strategy_rijen}}</tbody>
+    <tbody>{strategy_rijen}</tbody>
   </table>
 </div>
 <div class="section">
   <div class="section-title">Laatste signalen screener (Baseline)</div>
-  {{'<table><thead><tr><th>Ticker</th><th>Prijs</th><th>Wijz%</th><th>RelVol</th><th>RSI</th><th>VWAP</th><th>EMA</th><th>Score</th></tr></thead><tbody>' + scan_rijen + '</tbody></table>' if scan_resultaten else '<div style="color:var(--muted);padding:24px 12px;font-style:italic">Nog geen scan data</div>'}}
+  {'<table><thead><tr><th>Ticker</th><th>Prijs</th><th>Wijz%</th><th>RelVol</th><th>RSI</th><th>VWAP</th><th>EMA</th><th>Score</th></tr></thead><tbody>' + scan_rijen + '</tbody></table>' if scan_resultaten else '<div style="color:var(--muted);padding:24px 12px;font-style:italic">Nog geen scan data</div>'}
 </div>
 <footer>Trading dashboard — automatisch gegenereerd</footer>
 </body>
