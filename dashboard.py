@@ -1,7 +1,7 @@
-import yfinance as yf
 import urllib.request
 import json
 from datetime import datetime
+import alpaca_data
 from cache_manager import (
     laad_ticker_cache, sla_ticker_cache_op,
     laad_shortlist_cache, sla_shortlist_cache_op,
@@ -247,41 +247,62 @@ def score_signals(raw_data, strategy):
     return resultaten
 
 
-# ─── Data ophalen per ticker ──────────────────────────────
+# ─── Data verwerken per ticker ───────────────────────────
+# Beide scan-functies halen data eerst in bulk op via alpaca_data,
+# dan verwerkt deze functie elk ticker afzonderlijk.
 
-def haal_data_op(ticker):
+def _verwerk_ticker_data(ticker, bars, snapshot=None):
+    """
+    Verwerk pre-gefetchte Alpaca bars (+ optionele real-time snapshot) naar intern formaat.
+    snapshot bevat actuele prijs/H/L/vorige-sluit uit get_stock_snapshot (kleine scan).
+    """
     try:
-        aandeel = yf.Ticker(ticker)
-        historie = aandeel.history(period="60d")
-        if historie.empty or len(historie) < 25:
+        sluitkoersen = bars['c']
+        volumes      = bars['v']
+        highs        = bars['h']
+        lows         = bars['l']
+
+        if snapshot and snapshot.get('prijs'):
+            prijs  = round(snapshot['prijs'], 2)
+            hoog   = snapshot.get('hoog') or highs[-1]
+            laag   = snapshot.get('laag') or lows[-1]
+            vorige = snapshot.get('vorige_sluit') or sluitkoersen[-2]
+        else:
+            prijs  = round(sluitkoersen[-1], 2)
+            hoog   = highs[-1]
+            laag   = lows[-1]
+            vorige = sluitkoersen[-2]
+
+        if not (MIN_PRIJS <= prijs <= MAX_PRIJS):
             return None
-        sluitkoersen = list(historie['Close'])
-        volumes = list(historie['Volume'])
-        prijs = round(sluitkoersen[-1], 2)
-        vorige = sluitkoersen[-2]
-        verandering = round(prijs - vorige, 2)
-        verandering_pct = round((verandering / vorige) * 100, 2)
-        gem_volume = sum(volumes[:-1]) / len(volumes[:-1])
-        rel_volume = round(volumes[-1] / gem_volume, 2)
-        rsi = bereken_rsi(sluitkoersen)
-        hoog = historie['High'].iloc[-1]
-        laag = historie['Low'].iloc[-1]
-        vwap = round((hoog + laag + prijs) / 3, 2)
+
+        verandering     = round(prijs - vorige, 2)
+        verandering_pct = round((verandering / vorige) * 100, 2) if vorige else 0.0
+
+        gem_volume    = sum(volumes[:-1]) / len(volumes[:-1]) if len(volumes) > 1 else 1
+        huidig_volume = volumes[-1]
+        if huidig_volume < MIN_VOLUME:
+            return None
+        rel_volume = round(huidig_volume / gem_volume, 2) if gem_volume > 0 else 1.0
+
+        rsi        = bereken_rsi(sluitkoersen)
+        vwap       = round((hoog + laag + prijs) / 3, 2)
         boven_vwap = prijs >= vwap
         ema_status, ema9, ema20 = detecteer_ema_crossover(sluitkoersen)
+
         return {
-            'ticker': ticker,
-            'prijs': prijs,
-            'verandering': verandering,
+            'ticker':          ticker,
+            'prijs':           prijs,
+            'verandering':     verandering,
             'verandering_pct': verandering_pct,
-            'rel_volume': rel_volume,
-            'rsi': rsi,
-            'boven_vwap': boven_vwap,
-            'ema_status': ema_status,
-            'ema9': ema9,
-            'ema20': ema20
+            'rel_volume':      rel_volume,
+            'rsi':             rsi,
+            'boven_vwap':      boven_vwap,
+            'ema_status':      ema_status,
+            'ema9':            ema9,
+            'ema20':           ema20,
         }
-    except:
+    except Exception:
         return None
 
 
@@ -351,38 +372,46 @@ def bereken_scan_statistieken(resultaten):
     }
 
 
-# ─── Grote scan (16:00) ───────────────────────────────────
+# ─── Grote scan (eenmalig per dag) ───────────────────────
+# Alpaca bulk: ~4000 tickers in 8-10 requests → klaar in seconden.
 
 def grote_scan(alle_tickers):
-    print(f"\n  🔍 GROTE SCAN — {len(alle_tickers)} tickers analyseren...")
-    print("  Dit duurt een paar minuten — even geduld...\n")
+    n = len(alle_tickers)
+    print(f"\n  🔍 GROTE SCAN — {n} tickers via Alpaca bulk (~{(n + alpaca_data.CHUNK_SIZE - 1) // alpaca_data.CHUNK_SIZE} requests)...")
+
+    bars_data = alpaca_data.haal_bars_bulk(alle_tickers)
 
     resultaten = []
-    for i, ticker in enumerate(alle_tickers):
-        if i % 100 == 0:
-            print(f"  Voortgang: {i}/{len(alle_tickers)} ({round(i / len(alle_tickers) * 100)}%)")
-        data = haal_data_op(ticker)
-        if data:
-            if abs(data['verandering_pct']) > MIN_BEWEGING_PCT and data['rel_volume'] > MIN_REL_VOLUME:
-                data['score'] = bereken_confluence_score(data)
-                resultaten.append(data)
+    for ticker, bars in bars_data.items():
+        data = _verwerk_ticker_data(ticker, bars)
+        if data and abs(data['verandering_pct']) > MIN_BEWEGING_PCT and data['rel_volume'] > MIN_REL_VOLUME:
+            data['score'] = bereken_confluence_score(data)
+            resultaten.append(data)
 
     resultaten.sort(key=lambda x: abs(x['score'] - 50), reverse=True)
-    shortlist_data = resultaten[:SHORTLIST_GROOTTE]  # shortlist bewaart extremen in beide richtingen
+    shortlist_data = resultaten[:SHORTLIST_GROOTTE]
     sla_shortlist_cache_op([d['ticker'] for d in shortlist_data])
     print(f"\n  ✅ Grote scan klaar — {len(shortlist_data)} aandelen in shortlist")
     return shortlist_data
 
 
 # ─── Kleine scan (elke 30 min) ────────────────────────────
+# Alpaca bulk: bars (RSI/EMA/volume) + snapshot (real-time prijs/H/L) → seconden.
 
 def kleine_scan(shortlist_tickers):
-    print(f"\n  🔄 KLEINE SCAN — {len(shortlist_tickers)} shortlist aandelen refreshen...")
+    print(f"\n  🔄 KLEINE SCAN — {len(shortlist_tickers)} aandelen via Alpaca snapshots...")
+
+    bars_data = alpaca_data.haal_bars_bulk(shortlist_tickers)
+    snapshots = alpaca_data.haal_snapshots_bulk(shortlist_tickers)
+
     resultaten = []
     for ticker in shortlist_tickers:
-        data = haal_data_op(ticker)
-        if data:
-            resultaten.append(data)
+        bars = bars_data.get(ticker)
+        if bars:
+            data = _verwerk_ticker_data(ticker, bars, snapshots.get(ticker))
+            if data:
+                resultaten.append(data)
+
     print(f"  ✅ Kleine scan klaar — {len(resultaten)} aandelen opgehaald")
     return resultaten
 

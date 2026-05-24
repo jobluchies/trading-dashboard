@@ -27,12 +27,8 @@ def is_markt_open():
 
 def haal_huidige_prijs(ticker):
     try:
-        import yfinance as yf
-        import time
-        time.sleep(0.5)
-        data = yf.Ticker(ticker).history(period="2d")
-        if not data.empty:
-            return round(data['Close'].iloc[-1], 2)
+        import alpaca_data
+        return alpaca_data.haal_huidige_prijs(ticker)
     except Exception as e:
         print(f"  Prijs fout {ticker}: {e}")
     return None
